@@ -42,30 +42,16 @@ class FWidget:
 
     def _build_html(self):
         self._validate_content()
-        
-        # Build class attribute
         class_attr = ' '.join(self.clas) if self.clas else ''
-        
-        # Build style attribute
         style_attr = '; '.join(self.style) if self.style else ''
-        
-        # Build properties
         prop_attr = ' '.join(self.prop) if self.prop else ''
-        
-        # Combine all attributes
         attributes = []
-        if class_attr:
-            attributes.append(f'class="{class_attr}"')
-        if style_attr:
-            attributes.append(f'style="{style_attr}"')
-        if prop_attr:
-            attributes.append(prop_attr)
-        
+        if class_attr: attributes.append(f'class="{class_attr}"')
+        if style_attr: attributes.append(f'style="{style_attr}"')
+        if prop_attr: attributes.append(prop_attr)
         attr_str = ' '.join(attributes) if attributes else ''
-        
         html = f'<{self.tag} id="{self.id}" {attr_str}>'
-        for w in self.content:
-            html += w.toHtml() if isinstance(w, FWidget) else str(w)
+        for w in self.content: html += w.toHtml() if isinstance(w, FWidget) else str(w)
         html += f'</{self.tag}>'
         self.html = html
         return html
@@ -163,20 +149,31 @@ class FValueWidget(FWidget):
     
     def setValue(self, value):
         self.value = value
-        
-        # Find and remove existing value property
         for i, p in enumerate(self.prop):
             if p.strip().startswith('value='):
                 self.prop.pop(i)
                 break
-        
-        # Add new value property
         self.prop.append(f'value="{self.value}"')
         self._build_html()
 
 class FInput(FValueWidget):
     def __init__(self, *, id_=None, clas: List[str]|None = None, prop: List[str]|None = None, 
-                 style: List[str]|None = None, inp_type="", value=None, onchange=lambda : ()):
+                style: List[str]|None = None, inp_type="", value=None, onchange=lambda x:x):
         super().__init__(id_=id_, clas=clas, prop=prop, style=style, tag='input', 
-                         value=value, onchange=onchange)
+                        value=value, onchange=onchange)
         self.prop.append(f'type="{inp_type}"')
+
+class FOption(FWidget):
+    def __init__(self, *, id_=None, clas: List[str] | None = None, prop: List[str] | None = None, style: List[str] | None = None, content: List | None = None, value = None):
+        super().__init__(id_=id_, clas=clas, prop=prop, style=style, tag='option', content=content)
+        self.value = value
+        self.prop.append(f"value='{self.value}'")
+
+class FSelect(FValueWidget):
+    def __init__(self, *, id_=None, clas: List[str] | None = None, prop: List[str] | None = None, 
+                style: List[str] | None = None, options: List[dict | str] | None = None, 
+                value=None, onchange=lambda x:x):
+        super().__init__(id_=id_, clas=clas, prop=prop, style=style, tag='select', value=value, onchange=onchange)
+        self.options = options or []
+        self.option_widgets = [FOption(**o) for o in self.options] if self.options else []
+        self.content = self.option_widgets
