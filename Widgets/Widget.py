@@ -1,13 +1,14 @@
-from typing import Callable
+from typing import Callable, List, Union
 from uuid import uuid4
 from Widgets.Exceptions import FUIError
 
 class FWidget:
-    def __init__(self, *, id_=None, clas=None, prop=None, style=None, tag='div', content: list|None=None):
+    def __init__(self, *, id_=None, clas: List[str]|None = None, prop: List[str]|None = None, 
+                 style: List[str]|None = None, tag='div', content: Union[List, None] = None):
         self.id = id_ or ((tag or 'div') + uuid4().hex)
-        self.clas = clas or ''
-        self.prop = prop or ''
-        self.style = style or ''
+        self.clas = clas or []
+        self.prop = prop or []
+        self.style = style or []
         self.tag = tag or 'div'
         self.content = ([content] if not isinstance(content, list) else content) if content else []
         self.html = self._build_html()
@@ -41,7 +42,28 @@ class FWidget:
 
     def _build_html(self):
         self._validate_content()
-        html = f'<{self.tag} id="{self.id}" class="{self.clas}" style="{self.style}" {self.prop}>'
+        
+        # Build class attribute
+        class_attr = ' '.join(self.clas) if self.clas else ''
+        
+        # Build style attribute
+        style_attr = '; '.join(self.style) if self.style else ''
+        
+        # Build properties
+        prop_attr = ' '.join(self.prop) if self.prop else ''
+        
+        # Combine all attributes
+        attributes = []
+        if class_attr:
+            attributes.append(f'class="{class_attr}"')
+        if style_attr:
+            attributes.append(f'style="{style_attr}"')
+        if prop_attr:
+            attributes.append(prop_attr)
+        
+        attr_str = ' '.join(attributes) if attributes else ''
+        
+        html = f'<{self.tag} id="{self.id}" {attr_str}>'
         for w in self.content:
             html += w.toHtml() if isinstance(w, FWidget) else str(w)
         html += f'</{self.tag}>'
@@ -63,18 +85,21 @@ class FWidget:
         return self.toHtml()
 
 class FPage(FWidget):
-    def __init__(self, route: str = '/', title: str='', *, head: list | None = None, script: list|None = None, body: list | None = None):
+    def __init__(self, route: str = '/', title: str='', *, 
+                 head: List[Union[FWidget, str]]|None = None, 
+                 script: List[Union[FWidget, str]]|None = None, 
+                 body: List[Union[FWidget, str]]|None = None):
         self.route = route or '#'
         self.title = title
-        self.head = ([head] if not isinstance(head, list) else head) if head is not None else []
-        self.body = ([body] if not isinstance(body, list) else body) if body is not None else []
-        self.scripts = ([script] if not isinstance(script, list) else script) if script is not None else []
+        self.head = head or []
+        self.body = body or []
+        self.scripts = script or []
         self.content = self.body
         self.html = ''
         self._build_html()
         super().__init__(tag='html', content=body)
     
-    def addScript(self, script):
+    def addScript(self, script: Union[FWidget, str]):
         self.scripts.append(script)
         self._build_html()
         return self
@@ -113,7 +138,45 @@ class FPage(FWidget):
         return all_widgets
 
 class FButton(FWidget):
-    def __init__(self, *, id_=None, clas=None, prop=None, style=None, content: list | None = None, onclick=lambda:()):
+    def __init__(self, *, id_=None, clas: List[str]|None = None, prop: List[str]|None = None, 
+                 style: List[str]|None = None, content: List[Union[FWidget, str]]|None = None, 
+                 onclick=lambda:()):
         super().__init__(id_=id_, clas=clas, prop=prop, style=style, tag='button', content=content)
-        self.prop += f' hx-post="/_fui_event" hx-vals=\'{{"id":"{self.id}"}}\' hx-target="this" hx-swap="outerHTML"'
+        self.prop.append(f'hx-post="/_fui_event"')
+        self.prop.append(f'hx-vals=\'{{"id":"{self.id}"}}\'')
+        self.prop.append('hx-target="this"')
+        self.prop.append('hx-swap="outerHTML"')
         self.onclick = onclick
+
+class FValueWidget(FWidget):
+    def __init__(self, *, id_=None, clas: List[str]|None = None, prop: List[str]|None = None, 
+                 style: List[str]|None = None, tag='div', content: List[Union[FWidget, str]]|None = None, 
+                 value=None, onchange=lambda:()):
+        super().__init__(id_=id_, clas=clas, prop=prop, style=style, tag=tag, content=content)
+        self.value = value or ''
+        self.onchange = onchange
+        self.prop.append('hx-post="/_fui_event"')
+        self.prop.append('hx-trigger="change delay:150ms"')
+        self.prop.append(f'hx-vals="js:{{ id: \'{self.id}\', value: this.value }}"')
+        self.prop.append('hx-target="this"')
+        self.prop.append('hx-swap="outerHTML"')
+    
+    def setValue(self, value):
+        self.value = value
+        
+        # Find and remove existing value property
+        for i, p in enumerate(self.prop):
+            if p.strip().startswith('value='):
+                self.prop.pop(i)
+                break
+        
+        # Add new value property
+        self.prop.append(f'value="{self.value}"')
+        self._build_html()
+
+class FInput(FValueWidget):
+    def __init__(self, *, id_=None, clas: List[str]|None = None, prop: List[str]|None = None, 
+                 style: List[str]|None = None, inp_type="", value=None, onchange=lambda : ()):
+        super().__init__(id_=id_, clas=clas, prop=prop, style=style, tag='input', 
+                         value=value, onchange=onchange)
+        self.prop.append(f'type="{inp_type}"')

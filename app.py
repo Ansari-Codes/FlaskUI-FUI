@@ -1,6 +1,6 @@
 from os import PathLike, makedirs
 from typing import Any
-from Widgets.Widget import FPage, FWidget, FButton
+from Widgets.Widget import FPage, FWidget, FButton, FValueWidget
 from flask import Flask, render_template_string, request
 from bs4 import BeautifulSoup
 
@@ -23,7 +23,12 @@ class App(Flask):
             widget = self.fui_widgets.get(wid_id)
             print(widget)
             if widget and isinstance(widget, FButton):
-                widget.onclick() 
+                widget.onclick()
+                return widget.toHtml()
+            elif widget and isinstance(widget, FValueWidget):
+                wid_val = data.get('value')
+                widget.onchange(wid_val)
+                widget.setValue(wid_val)
                 return widget.toHtml()
             return '', 204
 
