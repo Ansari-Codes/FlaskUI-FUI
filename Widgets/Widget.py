@@ -4,7 +4,7 @@ from Widgets.Exceptions import FUIError
 
 class FWidget:
     def __init__(self, *, id_=None, clas: List[str]|None = None, prop: List[str]|None = None, 
-                 style: List[str]|None = None, tag='div', content: Union[List, None] = None):
+                    style: List[str]|None = None, tag='div', content: Union[List, None] = None):
         self.id = id_ or ((tag or 'div') + uuid4().hex)
         self.clas = clas or []
         self.prop = prop or []
@@ -12,6 +12,7 @@ class FWidget:
         self.tag = tag or 'div'
         self.content = ([content] if not isinstance(content, list) else content) if content else []
         self.html = self._build_html()
+        self._visible = True
 
     def add(self, widg, index=None):
         if index is not None:
@@ -28,6 +29,15 @@ class FWidget:
 
     def toHtml(self):
         return self._build_html()
+
+    def setVisible(self, visible: bool):
+        self._visible = visible
+        if visible:
+            self.style = [s for s in self.style if not s.startswith('display: none')]
+        else:
+            self.style.append('display: none')
+        self._build_html()
+        return self
 
     def _validate_content(self, content=None):
         content = content or self.content
@@ -72,9 +82,9 @@ class FWidget:
 
 class FPage(FWidget):
     def __init__(self, route: str = '/', title: str='', *, 
-                 head: List[Union[FWidget, str]]|None = None, 
-                 script: List[Union[FWidget, str]]|None = None, 
-                 body: List[Union[FWidget, str]]|None = None):
+                    head: List[Union[FWidget, str]]|None = None, 
+                    script: List[Union[FWidget, str]]|None = None, 
+                    body: List[Union[FWidget, str]]|None = None):
         self.route = route or '#'
         self.title = title
         self.head = head or []
@@ -102,6 +112,9 @@ class FPage(FWidget):
         <title>{self.title}</title>
         {head_html}
         <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js" integrity="sha384-/TgkGk7p307TH7EXJDuUlgG3Ce1UVolAOFopFekQkkXihi5u/6OCvVKyz1W+idaz" crossorigin="anonymous"></script>
+        <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
         {script_html}
         </head>
         <body>
@@ -125,8 +138,8 @@ class FPage(FWidget):
 
 class FValueWidget(FWidget):
     def __init__(self, *, id_=None, clas: List[str]|None = None, prop: List[str]|None = None, 
-                 style: List[str]|None = None, tag='div', content: List[Union[FWidget, str]]|None = None, 
-                 value=None, onchange=lambda:()):
+                    style: List[str]|None = None, tag='div', content: List[Union[FWidget, str]]|None = None, 
+                    value=None, onchange=lambda:()):
         super().__init__(id_=id_, clas=clas, prop=prop, style=style, tag=tag, content=content)
         self.value = value or ''
         self.onchange = onchange
@@ -135,7 +148,7 @@ class FValueWidget(FWidget):
         self.prop.append(f'hx-vals="js:{{ id: \'{self.id}\', value: this.value }}"')
         self.prop.append('hx-target="this"')
         self.prop.append('hx-swap="outerHTML"')
-    
+
     def setValue(self, value):
         self.value = value
         for i, p in enumerate(self.prop):

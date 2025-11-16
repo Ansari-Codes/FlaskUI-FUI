@@ -14,7 +14,7 @@ class Logger:
         init(True)
     
     def log(self, msg: str, type: Literal["debug", "error", "success", "info", "warning"] = "info"):
-        t = self.colors.get(type, lambda x: x)(type.upper())
+        t = self.colors.get(type, lambda x: x)(type.upper().center(7))
         d = " | " + dt.now().time().__str__()
         msg = " | " + msg
         line = t + d + msg

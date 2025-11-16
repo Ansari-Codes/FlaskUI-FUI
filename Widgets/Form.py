@@ -41,6 +41,25 @@ class FSelect(FValueWidget):
             if str(opt.value) == str(value): opt.prop.append("selected")
 
 class FTextArea(FValueWidget):
-    def __init__(self, *, id_=None, clas: List[str] | None = None, prop: List[str] | None = None, style: List[str] | None = None, value=None, onchange=...):
-        super().__init__(id_=id_, clas=clas, prop=prop, style=style, tag='textarea', value=value, onchange=onchange)
+    def __init__(self, *, id_=None, clas: list[str] | None = None, prop: list[str] | None = None,
+                style: list[str] | None = None, content: list | None = None,
+                value: str | None = None, onchange=lambda v: v):
+        super().__init__(id_=id_, clas=clas, prop=prop, style=style, tag='textarea', content=content)
+        self.value = value or ""
+        self.onchange = onchange
+        # hx-post event
+        self.prop.append('hx-post="/_fui_event"')
+        self.prop.append('hx-trigger="change delay:150ms"')
+        self.prop.append(f'hx-vals="js:{{ id: \'{self.id}\', value: this.value }}"')
+        self.prop.append('hx-target="this"')
+        self.prop.append('hx-swap="outerHTML"')
+        # initial value inside content
+        self._update_content()
 
+    def _update_content(self):
+        self.content = [self.value]
+        self._build_html()
+
+    def setValue(self, value: str):
+        self.value = value
+        self._update_content()
