@@ -1,5 +1,6 @@
 from app import FPage, App
-from Widgets.Widget import FPage, FButton, FInput,FSelect
+from Widgets.Widget import FPage
+from Widgets import FButton, FInput,FSelect
 
 app = App()
 # FPage

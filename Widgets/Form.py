@@ -1,0 +1,46 @@
+from Widgets.Widget import FValueWidget, FWidget
+from typing import List, Literal, Union
+
+class FButton(FWidget):
+    def __init__(self, *, id_=None, clas: List[str]|None = None, prop: List[str]|None = None, 
+                style: List[str]|None = None, content: List[Union[FWidget, str]]|None = None, 
+                onclick=lambda:()):
+        super().__init__(id_=id_, clas=clas, prop=prop, style=style, tag='button', content=content)
+        self.prop.append(f'hx-post="/_fui_event"')
+        self.prop.append(f'hx-vals=\'{{"id":"{self.id}"}}\'')
+        self.prop.append('hx-target="this"')
+        self.prop.append('hx-swap="outerHTML"')
+        self.onclick = onclick
+
+class FInput(FValueWidget):
+    def __init__(self, *, id_=None, clas: List[str]|None = None, prop: List[str]|None = None, 
+                style: List[str]|None = None, inp_type="", value=None, onchange=lambda x:x):
+        super().__init__(id_=id_, clas=clas, prop=prop, style=style, tag='input', 
+                        value=value, onchange=onchange)
+        self.prop.append(f'type="{inp_type}"')
+
+class FOption(FWidget):
+    def __init__(self, *, id_=None, clas: List[str] | None = None, prop: List[str] | None = None, style: List[str] | None = None, content: List | None = None, value = None):
+        super().__init__(id_=id_, clas=clas, prop=prop, style=style, tag='option', content=content)
+        self.value = value
+        self.prop.append(f"value='{self.value}'")
+
+class FSelect(FValueWidget):
+    def __init__(self, *, id_=None, clas: List[str] | None = None, prop: List[str] | None = None, 
+                style: List[str] | None = None, options: List[dict | str] | None = None, 
+                value=None, onchange=lambda x:x):
+        super().__init__(id_=id_, clas=clas, prop=prop, style=style, tag='select', value=value, onchange=onchange)
+        self.options = options or []
+        self.option_widgets = [FOption(**o) for o in self.options] if self.options else [] # type: ignore
+        self.content = self.option_widgets
+
+    def setValue(self, value):
+        super().setValue(value)
+        for opt in self.option_widgets:
+            opt.prop = [p for p in opt.prop if not p.startswith("selected")]
+            if str(opt.value) == str(value): opt.prop.append("selected")
+
+class FTextArea(FValueWidget):
+    def __init__(self, *, id_=None, clas: List[str] | None = None, prop: List[str] | None = None, style: List[str] | None = None, value=None, onchange=...):
+        super().__init__(id_=id_, clas=clas, prop=prop, style=style, tag='textarea', value=value, onchange=onchange)
+

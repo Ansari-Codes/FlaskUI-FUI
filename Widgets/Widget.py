@@ -123,17 +123,6 @@ class FPage(FWidget):
                 _collect(widget)
         return all_widgets
 
-class FButton(FWidget):
-    def __init__(self, *, id_=None, clas: List[str]|None = None, prop: List[str]|None = None, 
-                 style: List[str]|None = None, content: List[Union[FWidget, str]]|None = None, 
-                 onclick=lambda:()):
-        super().__init__(id_=id_, clas=clas, prop=prop, style=style, tag='button', content=content)
-        self.prop.append(f'hx-post="/_fui_event"')
-        self.prop.append(f'hx-vals=\'{{"id":"{self.id}"}}\'')
-        self.prop.append('hx-target="this"')
-        self.prop.append('hx-swap="outerHTML"')
-        self.onclick = onclick
-
 class FValueWidget(FWidget):
     def __init__(self, *, id_=None, clas: List[str]|None = None, prop: List[str]|None = None, 
                  style: List[str]|None = None, tag='div', content: List[Union[FWidget, str]]|None = None, 
@@ -155,25 +144,3 @@ class FValueWidget(FWidget):
                 break
         self.prop.append(f'value="{self.value}"')
         self._build_html()
-
-class FInput(FValueWidget):
-    def __init__(self, *, id_=None, clas: List[str]|None = None, prop: List[str]|None = None, 
-                style: List[str]|None = None, inp_type="", value=None, onchange=lambda x:x):
-        super().__init__(id_=id_, clas=clas, prop=prop, style=style, tag='input', 
-                        value=value, onchange=onchange)
-        self.prop.append(f'type="{inp_type}"')
-
-class FOption(FWidget):
-    def __init__(self, *, id_=None, clas: List[str] | None = None, prop: List[str] | None = None, style: List[str] | None = None, content: List | None = None, value = None):
-        super().__init__(id_=id_, clas=clas, prop=prop, style=style, tag='option', content=content)
-        self.value = value
-        self.prop.append(f"value='{self.value}'")
-
-class FSelect(FValueWidget):
-    def __init__(self, *, id_=None, clas: List[str] | None = None, prop: List[str] | None = None, 
-                style: List[str] | None = None, options: List[dict | str] | None = None, 
-                value=None, onchange=lambda x:x):
-        super().__init__(id_=id_, clas=clas, prop=prop, style=style, tag='select', value=value, onchange=onchange)
-        self.options = options or []
-        self.option_widgets = [FOption(**o) for o in self.options] if self.options else []
-        self.content = self.option_widgets
