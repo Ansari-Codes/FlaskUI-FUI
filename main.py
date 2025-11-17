@@ -22,7 +22,7 @@ left = FCol(content=[])
 right = FCol(content=[])
 
 # Left: form widgets and interactivity
-inp = FInput(value="Type here")
+inp = FInput(value="Type here", onchange=lambda x: print(x))
 left.add(FCard(content=[FLabel(content=["Text Input"]), inp]))
 
 sel = FSelect(options=[{"value":"1", "content":["One"]}, {"value":"2", "content":["Two"]}], value="1")

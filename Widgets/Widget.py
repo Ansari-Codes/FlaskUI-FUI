@@ -11,6 +11,9 @@ class FWidget:
         self.style = style or []
         self.tag = tag or 'div'
         self.content = ([content] if not isinstance(content, list) else content) if content else []
+        # internal flag: when True, the next call to toHtml/_build_html will
+        # include a small script that instructs the browser to request an
+        # updated version of this widget via the `/_fui_widget_reload` endpoint.
         self._emit_reload_script = False
         self.html = self._build_html()
 
