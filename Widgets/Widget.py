@@ -82,27 +82,39 @@ class FWidget:
     def __lshift__(self, other):
         return self.add(other)
 
+    def __rshift__(self, other):
+        return self.add(other)
+
     def __repr__(self):
         return self.toHtml()
 
 class FPage(FWidget):
     def __init__(self, route: str = '/', title: str='', *, 
                  head: List[Union[FWidget, str]]|None = None, 
-                 script: List[Union[FWidget, str]]|None = None, 
+                 scripts: List[Union[FWidget, str]]|None = None, 
+                 styles: List[Union[FWidget, str]]|None = None, 
                  body: List[Union[FWidget, str]]|None = None):
         self.route = route or '#'
         self.title = title
         self.head = head or []
         self.body = body or []
-        self.scripts = script or []
+        self.scripts = scripts or []
+        self.styles = styles or []
         self.content = self.body
         self.html = ''
         self._build_html()
         super().__init__(tag='html', content=body)
     
-    def addScript(self, script: Union[FWidget, str]):
+    def addScript(self, script: str|FWidget):
         self.scripts.append(script)
         self._build_html()
+        self.reload()
+        return self
+    
+    def addStyle(self, style: str|FWidget):
+        self.styles.append(style)
+        self._build_html()
+        self.reload()
         return self
 
     def _build_html(self):
@@ -112,6 +124,7 @@ class FPage(FWidget):
         head_html = ''.join(i.toHtml() if isinstance(i, FWidget) else str(i) for i in self.head)
         body_html = ''.join(i.toHtml() if isinstance(i, FWidget) else str(i) for i in self.body)
         script_html = ''.join(i.toHtml() if isinstance(i, FWidget) else str(i) for i in self.scripts)
+        style_html = ''.join(i.toHtml() if isinstance(i, FWidget) else str(i) for i in self.styles)
         raw = f"""<html>
         <head>
         <title>{self.title}</title>
@@ -120,6 +133,7 @@ class FPage(FWidget):
         <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
         <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+        <script src="https://cdn.tailwindcss.com"></script>
         {script_html}
         <!-- FUI reload helper: call `fuiReloadWidget(id)` to fetch updated HTML and replace the element -->
         <script>
@@ -150,6 +164,7 @@ class FPage(FWidget):
             }}
         }};
         </script>
+        {style_html}
         </head>
         <body>
         {body_html}
@@ -171,9 +186,9 @@ class FPage(FWidget):
         return all_widgets
 
 class FValueWidget(FWidget):
-    def __init__(self, *, id_=None, clas: List[str]|None = None, prop: List[str]|None = None, 
-                 style: List[str]|None = None, tag='div', content: List[Union[FWidget, str]]|None = None, 
-                 value=None, onchange=lambda:()):
+    def __init__(self, value=None, onchange=lambda:(), *, id_=None, clas: List[str]|None = None, 
+                prop: List[str]|None = None, style: List[str]|None = None, tag='div', 
+                content: List[Union[FWidget, str]]|None = None):
         super().__init__(id_=id_, clas=clas, prop=prop, style=style, tag=tag, content=content)
         self.value = value or ''
         self.onchange = onchange

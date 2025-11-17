@@ -3,8 +3,11 @@ from typing import List, Literal, Union
 from .Text import FLabel
 
 class FLink(FWidget):
-    def __init__(self, *, id_=None, clas: List[str] | None = None, prop: List[str] | None = None, style: List[str] | None = None, 
-                content: List | None = None, href: str|None = None, target: str = '_blank'):
+    def __init__(self, content: List | None = None, href: str|None = None, target: str = '_blank', 
+                *, 
+                id_=None, clas: List[str] | None = None, 
+                prop: List[str] | None = None, 
+                style: List[str] | None = None):
         super().__init__(id_=id_, clas=clas, prop=prop, style=style, tag='a', content=content)
         self.target = target
         self.href = href or '#'
@@ -13,8 +16,13 @@ class FLink(FWidget):
         self._build_html()
 
 class FNav(FWidget):
-    def __init__(self, *, id_=None, clas: List[str] | None = None, prop: List[str] | None = None, 
-                style: List[str] | None = None, links: List[FLink|dict]|None = None, brand_name: str|dict = ""):
+    def __init__(self, 
+                brand_name: str|dict = "",
+                links: List[FLink|dict]|None = None,
+                *, 
+                id_=None, clas: List[str] | None = None,
+                prop: List[str] | None = None, 
+                style: List[str] | None = None):
         links = links or []
         content = [
             brand_name 
