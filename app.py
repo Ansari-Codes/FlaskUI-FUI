@@ -6,6 +6,8 @@ from flask import Flask, render_template_string, request
 from Widgets.utils import Logger
 from colorama import Fore, Style, init
 
+init(True)
+
 class App(Flask):
     """A wrapper around Flask's own app. All the FUI's methods and attributes start from 'fui'."""
     def __init__(self, import_name: str = '', *, prod = True, pages: list[FPage]|None = None,static_url_path: str | None = None, static_folder: str | PathLike[str] | None = "static", static_host: str | None = None, host_matching: bool = False, subdomain_matching: bool = False, template_folder: str | PathLike[str] | None = "templates", instance_path: str | None = None, instance_relative_config: bool = False, root_path: str | None = None):
@@ -27,7 +29,7 @@ class App(Flask):
             widget = self.fui_widgets.get(wid_id)
             if widget and isinstance(widget, FButton):
                 widget.onclick()
-                if self.prod: self.fui_logger("Widget clicked!")
+                if self.prod: self.fui_logger(Style.BRIGHT + Fore.GREEN + "Widget clicked!" + Style.RESET_ALL)
                 response = widget.toHtml()
                 for w in self.fui_widgets.values():
                     if getattr(w, '_emit_reload_script', False):
@@ -37,7 +39,7 @@ class App(Flask):
                 return response
             elif widget and isinstance(widget, FValueWidget):
                 wid_val = data.get('value')
-                if self.prod: self.fui_logger(f"Widget value received: {wid_val}")
+                if self.prod: self.fui_logger(f"Widget value received: {Style.BRIGHT + Fore.GREEN}{wid_val}{Style.RESET_ALL}")
                 widget.onchange(wid_val)
                 if self.prod: self.fui_logger(f"Widget 'onchange' called")
                 widget.setValue(wid_val)
