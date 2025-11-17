@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Brython Turtle IDE</title>
+
+    <!-- Brython -->
+    <script src="https://cdn.jsdelivr.net/npm/brython@3/brython.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/brython@3/brython_stdlib.js"></script>
+
+    <style>
+        body { font-family: Arial; display: flex; flex-direction: column; align-items: center; }
+        #canvas { border: 2px solid black; background: #eee; margin-bottom: 10px; }
+        #editor { width: 600px; height: 200px; margin-bottom: 10px; font-family: monospace; }
+        button { margin: 5px; padding: 10px 15px; font-size: 16px; }
+    </style>
+</head>
+
+<body onload="brython()">
+
+    <h1>Brython Turtle IDE 🐢</h1>
+
+    <canvas id="canvas" width="600" height="400"></canvas>
+    <textarea id="editor" placeholder="Write Python Turtle code here..."></textarea><br>
+    <button id="run">Run</button>
+    <button id="clear">Clear</button>
+
+    <script type="text/python">
+from browser import document, window, alert
+import math
+
+# === Canvas Setup ===
+canvas = document["canvas"]
+ctx = canvas.getContext("2d")
+
+# === Turtle Class ===
+class Turtle:
+    def __init__(self):
+        self.x = canvas.width // 2
+        self.y = canvas.height // 2
+        self.angle = 0
+        self.pendown = True
+        self.color = "black"
+
+    def forward(self, dist):
+        rad = math.radians(self.angle)
+        new_x = self.x + dist * math.cos(rad)
+        new_y = self.y - dist * math.sin(rad)
+
+        if self.pendown:
+            ctx.beginPath()
+            ctx.moveTo(self.x, self.y)
+            ctx.lineTo(new_x, new_y)
+            ctx.strokeStyle = self.color
+            ctx.lineWidth = 2
+            ctx.stroke()
+
+        self.x, self.y = new_x, new_y
+
+    def back(self, dist):
+        self.forward(-dist)
+
+    def left(self, deg):
+        self.angle += deg
+
+    def right(self, deg):
+        self.angle -= deg
+
+    def penup(self):
+        self.pendown = False
+
+    def pendown(self):
+        self.pendown = True
+
+    def setcolor(self, col):
+        self.color = col
+
+    def goto(self, x, y):
+        if self.pendown:
+            ctx.beginPath()
+            ctx.moveTo(self.x, self.y)
+            ctx.lineTo(x, y)
+            ctx.strokeStyle = self.color
+            ctx.stroke()
+        self.x, self.y = x, y
+
+# === Helper Functions ===
+def clear_canvas(ev=None):
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+def run_code(ev):
+    code = document["editor"].value
+    t = Turtle()  # new turtle for every run
+    try:
+        # Allow user code to access 't' directly
+        exec(code, {"t": t, "math": math})
+    except Exception as e:
+        alert(f"Error: {e}")
+
+# === Bind Buttons ===
+document["run"].bind("click", run_code)
+document["clear"].bind("click", clear_canvas)
+
+    </script>
+
+</body>
+</html>

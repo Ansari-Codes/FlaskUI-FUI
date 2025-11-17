@@ -39,6 +39,7 @@ class FSelect(FValueWidget):
         for opt in self.option_widgets:
             opt.prop = [p for p in opt.prop if not p.startswith("selected")]
             if str(opt.value) == str(value): opt.prop.append("selected")
+        self.reload()
 
 class FTextArea(FValueWidget):
     def __init__(self, *, id_=None, clas: list[str] | None = None, prop: list[str] | None = None,
@@ -63,3 +64,4 @@ class FTextArea(FValueWidget):
     def setValue(self, value: str):
         self.value = value
         self._update_content()
+        self.reload()

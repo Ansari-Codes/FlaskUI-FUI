@@ -4,15 +4,15 @@ from Widgets.Exceptions import FUIError
 
 class FWidget:
     def __init__(self, *, id_=None, clas: List[str]|None = None, prop: List[str]|None = None, 
-                    style: List[str]|None = None, tag='div', content: Union[List, None] = None):
+                style: List[str]|None = None, tag='div', content: Union[List, None] = None):
         self.id = id_ or ((tag or 'div') + uuid4().hex)
         self.clas = clas or []
         self.prop = prop or []
         self.style = style or []
         self.tag = tag or 'div'
         self.content = ([content] if not isinstance(content, list) else content) if content else []
+        self._emit_reload_script = False
         self.html = self._build_html()
-        self._visible = True
 
     def add(self, widg, index=None):
         if index is not None:
@@ -20,24 +20,26 @@ class FWidget:
         else:
             self.content.append(widg)
         self._build_html()
+        self.reload()
         return self
 
     def remove(self, filter: Callable):
         self.content = [w for idx, w in enumerate(self.content) if not filter(idx, w)]
         self._build_html()
+        self.reload()
         return self
 
     def toHtml(self):
         return self._build_html()
 
-    def setVisible(self, visible: bool):
-        self._visible = visible
-        if visible:
-            self.style = [s for s in self.style if not s.startswith('display: none')]
-        else:
-            self.style.append('display: none')
-        self._build_html()
-        return self
+    def reload(self) -> None:
+        """Mark this widget to be reloaded on the client.
+
+        When the server subsequently returns HTML that includes this widget
+        (for example as the response to an event), the widget's HTML will
+        include a short script that calls `window.fuiReloadWidget(id)`.
+        """
+        self._emit_reload_script = True
 
     def _validate_content(self, content=None):
         content = content or self.content
@@ -82,9 +84,9 @@ class FWidget:
 
 class FPage(FWidget):
     def __init__(self, route: str = '/', title: str='', *, 
-                    head: List[Union[FWidget, str]]|None = None, 
-                    script: List[Union[FWidget, str]]|None = None, 
-                    body: List[Union[FWidget, str]]|None = None):
+                 head: List[Union[FWidget, str]]|None = None, 
+                 script: List[Union[FWidget, str]]|None = None, 
+                 body: List[Union[FWidget, str]]|None = None):
         self.route = route or '#'
         self.title = title
         self.head = head or []
@@ -116,6 +118,35 @@ class FPage(FWidget):
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
         <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
         {script_html}
+        <!-- FUI reload helper: call `fuiReloadWidget(id)` to fetch updated HTML and replace the element -->
+        <script>
+        window.fuiReloadWidget = async function(id) {{
+            try {{
+                const res = await fetch('/_fui_widget_reload', {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify({{ id: id }})
+                }});
+                if (res.status === 204) return; // nothing to update
+                if (!res.ok) {{
+                    console.warn('FUI reload failed', res.status);
+                    return;
+                }}
+                const html = await res.text();
+                const el = document.getElementById(id);
+                if (!el) return;
+                // Replace the element's outerHTML with the new HTML
+                el.outerHTML = html;
+                // Remove any reload-script tags emitted for this id
+                try {{
+                    const scripts = document.querySelectorAll('script.reload-' + id);
+                    scripts.forEach(s => s.remove());
+                }} catch (e) {{ /* ignore DOM removal errors */ }}
+            }} catch (err) {{
+                console.error('FUI reload error', err);
+            }}
+        }};
+        </script>
         </head>
         <body>
         {body_html}
@@ -138,8 +169,8 @@ class FPage(FWidget):
 
 class FValueWidget(FWidget):
     def __init__(self, *, id_=None, clas: List[str]|None = None, prop: List[str]|None = None, 
-                    style: List[str]|None = None, tag='div', content: List[Union[FWidget, str]]|None = None, 
-                    value=None, onchange=lambda:()):
+                 style: List[str]|None = None, tag='div', content: List[Union[FWidget, str]]|None = None, 
+                 value=None, onchange=lambda:()):
         super().__init__(id_=id_, clas=clas, prop=prop, style=style, tag=tag, content=content)
         self.value = value or ''
         self.onchange = onchange
@@ -148,7 +179,7 @@ class FValueWidget(FWidget):
         self.prop.append(f'hx-vals="js:{{ id: \'{self.id}\', value: this.value }}"')
         self.prop.append('hx-target="this"')
         self.prop.append('hx-swap="outerHTML"')
-
+    
     def setValue(self, value):
         self.value = value
         for i, p in enumerate(self.prop):
@@ -157,3 +188,4 @@ class FValueWidget(FWidget):
                 break
         self.prop.append(f'value="{self.value}"')
         self._build_html()
+        self.reload()

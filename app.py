@@ -4,6 +4,7 @@ from Widgets.Widget import FPage
 from Widgets import FButton, FValueWidget
 from flask import Flask, render_template_string, request
 from Widgets.utils import Logger
+from colorama import Fore, Style, init
 
 class App(Flask):
     """A wrapper around Flask's own app. All the FUI's methods and attributes start from 'fui'."""
@@ -27,8 +28,13 @@ class App(Flask):
             if widget and isinstance(widget, FButton):
                 widget.onclick()
                 if self.prod: self.fui_logger("Widget clicked!")
+                response = widget.toHtml()
+                for w in self.fui_widgets.values():
+                    if getattr(w, '_emit_reload_script', False):
+                        response += f"<script class='reload-{w.id}'>window.fuiReloadWidget && window.fuiReloadWidget('{w.id}')</script>"
+                        w._emit_reload_script = False
                 if self.prod: self.fui_logger("Event finished!", "success")
-                return widget.toHtml()
+                return response
             elif widget and isinstance(widget, FValueWidget):
                 wid_val = data.get('value')
                 if self.prod: self.fui_logger(f"Widget value received: {wid_val}")
@@ -36,12 +42,29 @@ class App(Flask):
                 if self.prod: self.fui_logger(f"Widget 'onchange' called")
                 widget.setValue(wid_val)
                 if self.prod: self.fui_logger(f"Widget value changed")
+                response = widget.toHtml()
+                for w in self.fui_widgets.values():
+                    if getattr(w, '_emit_reload_script', False):
+                        response += f"<script class='reload-{w.id}'>window.fuiReloadWidget && window.fuiReloadWidget('{w.id}')</script>"
+                        w._emit_reload_script = False
                 if self.prod: self.fui_logger("Event finished!", "success")
-                return widget.toHtml()
+                return response
             if (not widget) and self.prod: self.fui_logger(f"Widget not found", "warning")
             else: self.fui_logger(f"Widget is not an instance of these types: FButton, FValueWidget", "warning")
             if self.prod: self.fui_logger("Event finished without any purpose!", "success")
             return '', 204
+        @self.route('/_fui_widget_reload', methods=['POST'])
+        def handle_widget_reload():
+            if self.prod: self.fui_logger("Widget reload request started")
+            if request.is_json: data = request.get_json()
+            else: data = request.form.to_dict()
+            wid_id = data.get('id')
+            if not wid_id:
+                if self.prod: self.fui_logger("No widget id provided for reload", "warning")
+                return '', 400
+            html = self.fuiReloadWidget(wid_id)
+            if html is None: return '', 204
+            return html
         self.fui_logger("App initalized!", "success")
 
     def fuiAddPage(self, page: FPage):
@@ -54,3 +77,14 @@ class App(Flask):
         self.fui_pages.append(page)
         if self.prod: self.fui_logger(f"Page '{page.title}' added to the app!", "success")
         if self.prod: self.fui_logger(f"All pages: {', '.join([p.title for p in self.fui_pages])}", "success")
+
+    def fuiReloadWidget(self, widget_id: str):
+        """Return updated HTML for a specific widget."""
+        widget = self.fui_widgets.get(widget_id)
+        if not widget:
+            self.fui_logger(f"Widget '{widget_id}' not found!", "warning")
+            return None
+        if self.prod: self.fui_logger(f"Reloading widget '{widget_id}'...")
+        html = widget.toHtml()
+        if self.prod: self.fui_logger(f"Widget '{widget_id}' reloaded!", "success")
+        return html
