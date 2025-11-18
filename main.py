@@ -166,8 +166,7 @@ body {
 """)
 
 def renderMarkDown(src: str):
-    previewer.content = [src]
-    previewer.reload()
+    previewer.setMarkdown(src)
 
 # Header
 header = FHeader(
@@ -183,7 +182,7 @@ page << row #type:ignore
 
 source = FInput(
     "# Try this example!", 
-    onchange=renderMarkDown, 
+    onchange=renderMarkDown,
     clas=["w-full", "h-fit", "justify-between"]
     )
 row << source #type:ignore
@@ -193,8 +192,4 @@ row << previewer #type:ignore
 
 app.fuiAddPage(page)
 
-app.run(debug=False, port=8080)
-
-
-
-
+app.run(debug=True, port=8080)

@@ -27,14 +27,12 @@ class App(Flask):
             if self.prod: self.fui_logger(f"Data received: {data}")
             wid_id = data.get('id')
             widget = self.fui_widgets.get(wid_id)
+            
             if widget and isinstance(widget, FButton):
                 widget.onclick()
                 if self.prod: self.fui_logger(Style.BRIGHT + Fore.GREEN + "Widget clicked!" + Style.RESET_ALL)
                 response = widget.toHtml()
-                for w in self.fui_widgets.values():
-                    if getattr(w, '_emit_reload_script', False):
-                        response += f"<script class='reload-{w.id}'>window.fuiReloadWidget && window.fuiReloadWidget('{w.id}')</script>"
-                        w._emit_reload_script = False
+                response += '<script>htmx.process(document.body)</script>'
                 if self.prod: self.fui_logger("Event finished!", "success")
                 return response
             elif widget and isinstance(widget, FValueWidget):
@@ -45,10 +43,7 @@ class App(Flask):
                 widget.setValue(wid_val)
                 if self.prod: self.fui_logger(f"Widget value changed")
                 response = widget.toHtml()
-                for w in self.fui_widgets.values():
-                    if getattr(w, '_emit_reload_script', False):
-                        response += f"<script class='reload-{w.id}'>window.fuiReloadWidget && window.fuiReloadWidget('{w.id}')</script>"
-                        w._emit_reload_script = False
+                response += '<script>htmx.process(document.body)</script>'
                 if self.prod: self.fui_logger("Event finished!", "success")
                 return response
             if (not widget) and self.prod: self.fui_logger(f"Widget not found", "warning")

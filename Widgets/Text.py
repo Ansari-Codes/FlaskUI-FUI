@@ -20,10 +20,21 @@ class FCode(FWidget):
         super().__init__(id_=id_, clas=clas, prop=prop, style=style, tag='code', content=content if isinstance(content, list) else [content])
 
 class FMarkdown(FWidget):
-    def __init__(self, text: str|None = None, *, id_=None, clas: List[str] | None = None, 
-                prop: List[str] | None = None, style: List[str] | None = None, **md):
-        content = markdown(text or "", **md)
-        super().__init__(id_=id_, clas=clas, prop=prop, style=style, tag='code', content=[content])
+    def __init__(self, markdown_text: str = "", *, id_=None, clas: List[str]|None = None, 
+                prop: List[str]|None = None, style: List[str]|None = None):
+        self.markdown_text = markdown_text
+        super().__init__(id_=id_, clas=clas, prop=prop, style=style, tag='div', content=[])
+        self._build_html()
+
+    def setMarkdown(self, text: str):
+        self.markdown_text = text
+        self._build_html()
+        self.reload()
+
+    def _build_html(self):
+        html_content = markdown(self.markdown_text)
+        self.content = [html_content]
+        return super()._build_html()
 
 class FPre(FWidget):
     def __init__(self,

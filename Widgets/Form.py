@@ -17,10 +17,13 @@ class FButton(FWidget):
 class FInput(FValueWidget):
     def __init__(self, value=None, onchange=lambda x:x, 
                 *, id_=None, clas: List[str]|None = None, prop: List[str]|None = None, 
-                style: List[str]|None = None, inp_type=""):
+                style: List[str]|None = None, inp_type="text"):
         super().__init__(id_=id_, clas=clas, prop=prop, style=style, tag='input', 
                         value=value, onchange=onchange)
         self.prop.append(f'type="{inp_type}"')
+        # trigger on input events (also supports typing)
+        # add a small debounce to avoid excessive requests
+        self.prop.append('hx-trigger="input changed delay:150ms"')
 
 class FOption(FWidget):
     def __init__(self, value = None, content: List | None = None, *, id_=None, clas: List[str] | None = None, prop: List[str] | None = None, 
@@ -40,6 +43,8 @@ class FSelect(FValueWidget):
         self.options = options or []
         self.option_widgets = [FOption(**o) for o in self.options] if self.options else [] # type: ignore
         self.content = self.option_widgets
+        # select should trigger on change
+        self.prop.append('hx-trigger="change"')
 
     def setValue(self, value):
         super().setValue(value)
@@ -54,12 +59,8 @@ class FTextArea(FValueWidget):
         super().__init__(id_=id_, clas=clas, prop=prop, style=style, tag='textarea', content=content)
         self.value = value or ""
         self.onchange = onchange
-        # hx-post event
-        self.prop.append('hx-post="/_fui_event"')
-        self.prop.append('hx-trigger="input"')
-        self.prop.append(f'hx-vals="js:{{ id: \'{self.id}\', value: this.value }}"')
-        self.prop.append('hx-target="this"')
-        self.prop.append('hx-swap="outerHTML"')
+        # only set the trigger here; hx-post/hx-vals are provided by FValueWidget
+        self.prop.append('hx-trigger="input delay:150ms"')
         # initial value inside content
         self._update_content()
 

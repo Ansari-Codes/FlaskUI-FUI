@@ -68,9 +68,12 @@ class FWidget:
         html = f'<{self.tag} id="{self.id}" {attr_str}>'
         for w in self.content: html += w.toHtml() if isinstance(w, FWidget) else str(w)
         html += f'</{self.tag}>'
+        if self._emit_reload_script:
+            html += f'<script class="reload-{self.id}">window.fuiReloadWidget && window.fuiReloadWidget("{self.id}");</script>'
+            self._emit_reload_script = False
         self.html = html
         return html
-
+    
     def __add__(self, other):
         if isinstance(other, (FWidget, str)):
             container = FWidget(tag='div')
@@ -154,6 +157,8 @@ class FPage(FWidget):
                 if (!el) return;
                 // Replace the element's outerHTML with the new HTML
                 el.outerHTML = html;
+                // Process the new element with htmx to ensure htmx attributes work
+                htmx.process(document.getElementById(id));
                 // Remove any reload-script tags emitted for this id
                 try {{
                     const scripts = document.querySelectorAll('script.reload-' + id);
@@ -192,11 +197,15 @@ class FValueWidget(FWidget):
         super().__init__(id_=id_, clas=clas, prop=prop, style=style, tag=tag, content=content)
         self.value = value or ''
         self.onchange = onchange
+        # common htmx attributes; specific trigger (input/change) is set by
+        # the concrete widget classes to avoid duplicate/conflicting triggers
         self.prop.append('hx-post="/_fui_event"')
-        self.prop.append('hx-trigger="change delay:150ms"')
         self.prop.append(f'hx-vals="js:{{ id: \'{self.id}\', value: this.value }}"')
         self.prop.append('hx-target="this"')
         self.prop.append('hx-swap="outerHTML"')
+        # Add this to ensure htmx processes the element after swap
+        self.prop.append('hx-swap-oob="true"')
+        self.setValue(self.value)
     
     def setValue(self, value):
         self.value = value

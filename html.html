@@ -1,107 +1,323 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Brython Turtle IDE</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Brython Dashboard — Charts + Controls + Animation</title>
 
-    <!-- Brython -->
-    <script src="https://cdn.jsdelivr.net/npm/brython@3/brython.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/brython@3/brython_stdlib.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <style>
-        body { font-family: Arial; display: flex; flex-direction: column; align-items: center; }
-        #canvas { border: 2px solid black; background: #eee; margin-bottom: 10px; }
-        #editor { width: 600px; height: 200px; margin-bottom: 10px; font-family: monospace; }
-        button { margin: 5px; padding: 10px 15px; font-size: 16px; }
-    </style>
+  <!-- Brython -->
+  <script src="https://cdn.jsdelivr.net/npm/brython@3/brython.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/brython@3/brython_stdlib.js"></script>
+
+  <style>
+    body { font-family: Inter, Arial, sans-serif; padding: 16px; background:#fafafa; }
+    h1 { margin: 0 0 12px 0; }
+    .row { display:flex; gap:16px; align-items:flex-start; }
+    .col { display:flex; flex-direction:column; gap:8px; }
+    .card { background:white; padding:12px; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,0.06); }
+    canvas { background: #fff; border-radius:6px; }
+    .controls { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    label { font-size:13px; color:#333; }
+    button, select, input { padding:8px 10px; border-radius:6px; border:1px solid #ddd; background:#fff; cursor:pointer; }
+    textarea { width:100%; height:90px; font-family: monospace; }
+    .spacer { height: 8px; }
+    .card canvas { height: 300px !important; max-height: 300px !important; }
+  </style>
 </head>
-
 <body onload="brython()">
 
-    <h1>Brython Turtle IDE 🐢</h1>
+  <h1>Brython Dashboard — Charts + Controls + Animation 🎛️📊</h1>
 
-    <canvas id="canvas" width="600" height="400"></canvas>
-    <textarea id="editor" placeholder="Write Python Turtle code here..."></textarea><br>
-    <button id="run">Run</button>
-    <button id="clear">Clear</button>
+  <div class="row">
+    <!-- Left: controls -->
+    <div class="col" style="flex:0 0 360px;">
+      <div class="card">
+        <h3>Global Controls</h3>
+        <div class="controls">
+          <label for="chartType">Chart Type:</label>
+          <select id="chartType">
+            <option>bar</option>
+            <option>line</option>
+            <option>radar</option>
+            <option>pie</option>
+            <option>doughnut</option>
+          </select>
 
-    <script type="text/python">
+          <button id="applyType">Apply</button>
+        </div>
+
+        <div class="spacer"></div>
+
+        <h4>Data Controls</h4>
+        <div class="controls">
+          <button id="addPoint">Add point (random)</button>
+          <button id="removePoint">Remove last</button>
+          <button id="randomize">Randomize</button>
+          <button id="clear">Clear</button>
+        </div>
+
+        <div class="spacer"></div>
+
+        <h4>Animation</h4>
+        <div class="controls">
+          <button id="startAnim">Start</button>
+          <button id="stopAnim">Stop</button>
+          <label>Interval (ms): <input id="intervalMs" value="800" style="width:80px" /></label>
+        </div>
+
+        <div class="spacer"></div>
+
+        <h4>Other</h4>
+        <div class="controls">
+          <button id="download1">Download Chart 1</button>
+          <button id="download2">Download Chart 2</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:12px;">
+        <h3>Quick Code Runner (Python)</h3>
+        <small>Access chart objects as <code>chart1</code> and <code>chart2</code>. Use <code>chart.update()</code> to refresh.</small>
+        <textarea id="pycode"># Example: change dataset 0 color and update
+chart1.data.datasets[0].backgroundColor = ['#8e44ad','#2980b9','#27ae60']
+chart1.update()</textarea>
+        <div class="controls">
+          <button id="runCode">Run Python</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: two charts -->
+    <div class="col" style="flex:1 1 auto;">
+      <div class="row" style="justify-content:space-between;">
+        <div class="card" style="flex:1 1 48%; padding:10px;">
+          <h3 style="margin:6px 0">Chart 1 — Sales</h3>
+          <canvas id="chart1" width="600" height="320"></canvas>
+          <div class="controls" style="margin-top:8px;">
+            <button id="chart1_add">+ pt</button>
+            <button id="chart1_remove">- pt</button>
+            <button id="chart1_random">Rand</button>
+          </div>
+        </div>
+
+        <div class="card" style="flex:1 1 48%; padding:10px;">
+          <h3 style="margin:6px 0">Chart 2 — Visitors</h3>
+          <canvas id="chart2" width="600" height="320"></canvas>
+          <div class="controls" style="margin-top:8px;">
+            <button id="chart2_add">+ pt</button>
+            <button id="chart2_remove">- pt</button>
+            <button id="chart2_random">Rand</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="text/python">
 from browser import document, window, alert
-import math
+import random
+import json
 
-# === Canvas Setup ===
-canvas = document["canvas"]
-ctx = canvas.getContext("2d")
+Chart = window.Chart
 
-# === Turtle Class ===
-class Turtle:
-    def __init__(self):
-        self.x = canvas.width // 2
-        self.y = canvas.height // 2
-        self.angle = 0
-        self.pendown = True
-        self.color = "black"
+# --- initial sample data
+labels = ["Jan","Feb","Mar"]
+data1 = [12, 19, 7]
+data2 = [30, 25, 40]
 
-    def forward(self, dist):
-        rad = math.radians(self.angle)
-        new_x = self.x + dist * math.cos(rad)
-        new_y = self.y - dist * math.sin(rad)
+# --- chart creation helper
+def make_config(chart_type, labels, datasets):
+    return {
+        "type": chart_type,
+        "data": {
+            "labels": labels[:],
+            "datasets": datasets
+        },
+        "options": {
+            "responsive": True,
+            "maintainAspectRatio": False,
+            "plugins": {
+                "legend": {"position": "top"},
+                "title": {"display": True, "text": "Brython Chart"}
+            }
+        }
+    }
 
-        if self.pendown:
-            ctx.beginPath()
-            ctx.moveTo(self.x, self.y)
-            ctx.lineTo(new_x, new_y)
-            ctx.strokeStyle = self.color
-            ctx.lineWidth = 2
-            ctx.stroke()
+# Create two Chart.js charts
+canvas1 = document["chart1"]
+ctx1 = canvas1.getContext("2d")
 
-        self.x, self.y = new_x, new_y
+canvas2 = document["chart2"]
+ctx2 = canvas2.getContext("2d")
 
-    def back(self, dist):
-        self.forward(-dist)
+def random_colors(n):
+    # simple nice palette generator
+    pal = ["#e74c3c","#8e44ad","#2980b9","#27ae60","#f39c12","#d35400","#16a085"]
+    return [pal[i % len(pal)] for i in range(n)]
 
-    def left(self, deg):
-        self.angle += deg
+config1 = make_config("bar", labels, [
+    {"label":"Sales", "data": data1[:], "backgroundColor": random_colors(len(labels))}
+])
+config2 = make_config("line", labels, [
+    {"label":"Visitors", "data": data2[:], "borderColor": "#2c3e50", "backgroundColor": "rgba(44,62,80,0.1)", "fill": True}
+])
 
-    def right(self, deg):
-        self.angle -= deg
+# Use Chart.new for Brython interop (works with Chart.js)
+chart1 = Chart.new(ctx1, config1)
+chart2 = Chart.new(ctx2, config2)
 
-    def penup(self):
-        self.pendown = False
+# --- Helpers to mutate charts
+def add_point(chart, label=None, value=None):
+    if label is None:
+        label = f"#{len(chart.data.labels)+1}"
+    if value is None:
+        value = random.randint(5,60)
+    chart.data.labels.push(label)
+    # support multiple datasets
+    for ds in chart.data.datasets:
+        ds.data.push(value if ds is chart.data.datasets[0] else random.randint(1,80))
+    # update colors if present
+    if hasattr(chart.data.datasets[0], "backgroundColor"):
+        # if backgroundColor is an array, push a new color
+        bc = chart.data.datasets[0].backgroundColor
+        try:
+            bc.push(random_colors(1)[0])
+        except Exception:
+            pass
+    chart.update()
 
-    def pendown(self):
-        self.pendown = True
+def remove_point(chart):
+    if len(chart.data.labels) == 0:
+        return
+    chart.data.labels.pop()
+    for ds in chart.data.datasets:
+        try:
+            ds.data.pop()
+        except Exception:
+            pass
+    chart.update()
 
-    def setcolor(self, col):
-        self.color = col
+def randomize_chart(chart):
+    # change each value randomly while keeping labels
+    for ds in chart.data.datasets:
+        # convert to Python list and mutate
+        n = len(ds.data)
+        new = [random.randint(1,80) for _ in range(n)]
+        # assign back
+        ds.data = new
+    chart.update()
 
-    def goto(self, x, y):
-        if self.pendown:
-            ctx.beginPath()
-            ctx.moveTo(self.x, self.y)
-            ctx.lineTo(x, y)
-            ctx.strokeStyle = self.color
-            ctx.stroke()
-        self.x, self.y = x, y
+def clear_chart(chart):
+    chart.data.labels = []
+    for ds in chart.data.datasets:
+        ds.data = []
+    chart.update()
 
-# === Helper Functions ===
-def clear_canvas(ev=None):
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
+# --- UI bindings (global controls)
+def apply_type(ev):
+    t = document["chartType"].value
+    # change both charts to selected type
+    # Chart.js requires re-constructing the chart to change type cleanly
+    global chart1, chart2
+    # capture data & options
+    d1 = chart1.data
+    o1 = chart1.options
+    d2 = chart2.data
+    o2 = chart2.options
+    chart1.destroy()
+    chart2.destroy()
+    cfg1 = make_config(t, list(d1.labels), [json.loads(json.dumps(ds)) for ds in d1.datasets])
+    cfg2 = make_config(t, list(d2.labels), [json.loads(json.dumps(ds)) for ds in d2.datasets])
+    chart1 = Chart.new(ctx1, cfg1)
+    chart2 = Chart.new(ctx2, cfg2)
 
-def run_code(ev):
-    code = document["editor"].value
-    t = Turtle()  # new turtle for every run
+document["applyType"].bind("click", apply_type)
+
+# data controls global
+document["addPoint"].bind("click", lambda ev: (add_point(chart1), add_point(chart2)))
+document["removePoint"].bind("click", lambda ev: (remove_point(chart1), remove_point(chart2)))
+document["randomize"].bind("click", lambda ev: (randomize_chart(chart1), randomize_chart(chart2)))
+document["clear"].bind("click", lambda ev: (clear_chart(chart1), clear_chart(chart2)))
+
+# per-chart quick controls
+document["chart1_add"].bind("click", lambda ev: add_point(chart1))
+document["chart1_remove"].bind("click", lambda ev: remove_point(chart1))
+document["chart1_random"].bind("click", lambda ev: randomize_chart(chart1))
+
+document["chart2_add"].bind("click", lambda ev: add_point(chart2))
+document["chart2_remove"].bind("click", lambda ev: remove_point(chart2))
+document["chart2_random"].bind("click", lambda ev: randomize_chart(chart2))
+
+# --- Animation (start / stop)
+anim_id = None
+
+def anim_step():
+    # one animation step: shift oldest value and add a new random one
     try:
-        # Allow user code to access 't' directly
-        exec(code, {"t": t, "math": math})
+        # shift for chart1
+        if len(chart1.data.labels) >= 1:
+            # pop first label (simulate moving window)
+            chart1.data.labels.shift()
+            for ds in chart1.data.datasets:
+                ds.data.shift()
+        add_point(chart1)
+        # chart2
+        if len(chart2.data.labels) >= 1:
+            chart2.data.labels.shift()
+            for ds in chart2.data.datasets:
+                ds.data.shift()
+        add_point(chart2)
+    except Exception:
+        pass
+
+def start_anim(ev):
+    global anim_id
+    if anim_id is not None:
+        return
+    ms = int(document["intervalMs"].value or 800)
+    # window.setInterval takes a JS function; we wrap our anim_step
+    anim_id = window.setInterval(lambda: anim_step(), ms)
+
+def stop_anim(ev):
+    global anim_id
+    if anim_id is not None:
+        window.clearInterval(anim_id)
+        anim_id = None
+
+document["startAnim"].bind("click", start_anim)
+document["stopAnim"].bind("click", stop_anim)
+
+# --- download helpers
+def download_canvas(canvas, filename):
+    # create a data URL and open in new tab (or trigger download)
+    url = canvas.toDataURL("image/png")
+    # open in new tab
+    window.open(url, "_blank")
+
+document["download1"].bind("click", lambda ev: download_canvas(canvas1, "chart1.png"))
+document["download2"].bind("click", lambda ev: download_canvas(canvas2, "chart2.png"))
+
+# --- quick python runner (exec user python)
+def run_code(ev):
+    code = document["pycode"].value
+    # expose chart1, chart2, Chart, random for convenience
+    gl = {"chart1": chart1, "chart2": chart2, "Chart": Chart, "random": random}
+    try:
+        exec(code, gl)
     except Exception as e:
-        alert(f"Error: {e}")
+        alert(f"Error running code: {e}")
 
-# === Bind Buttons ===
-document["run"].bind("click", run_code)
-document["clear"].bind("click", clear_canvas)
+document["runCode"].bind("click", run_code)
 
-    </script>
+# --- simple helpers to support JS array methods used above
+# Brython maps JS arrays; ensure shift/push/pop attributes exist
+# (if not, we fallback to Python list equivalents)
+# But Chart.js proxies usually have push/pop/shift available.
 
+# finished
+print("Dashboard ready — use controls or run Python snippets. 🎉")
+  </script>
 </body>
 </html>
