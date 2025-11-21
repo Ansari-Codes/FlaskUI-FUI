@@ -24,12 +24,17 @@ class FMarkdown(FWidget):
                 prop: List[str]|None = None, style: List[str]|None = None):
         self.markdown_text = markdown_text
         super().__init__(id_=id_, clas=clas, prop=prop, style=style, tag='div', content=[])
+        self.prop.append(f'hx-post="/_fui_widget_reload"')
+        self.prop.append(f'hx-vals=\'{{"id":"{self.id}"}}\'')
+        self.prop.append('hx-target="this"')
+        self.prop.append('hx-swap="outerHTML"')
         self._build_html()
 
     def setMarkdown(self, text: str):
         self.markdown_text = text
         self._build_html()
         self.reload()
+        return self
 
     def _build_html(self):
         html_content = markdown(self.markdown_text)

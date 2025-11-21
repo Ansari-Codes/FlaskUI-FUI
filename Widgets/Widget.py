@@ -1,6 +1,8 @@
-from typing import Callable, List, Union
+from typing import TYPE_CHECKING, Callable, List, Union, Optional
 from uuid import uuid4
+from flask import Flask, current_app, has_app_context
 from Widgets.Exceptions import FUIError
+from requests import post
 
 class FWidget:
     def __init__(self, *, id_=None, clas: List[str]|None = None, prop: List[str]|None = None, 
@@ -11,11 +13,9 @@ class FWidget:
         self.style = style or []
         self.tag = tag or 'div'
         self.content = ([content] if not isinstance(content, list) else content) if content else []
-        # internal flag: when True, the next call to toHtml/_build_html will
-        # include a small script that instructs the browser to request an
-        # updated version of this widget via the `/_fui_widget_reload` endpoint.
-        self._emit_reload_script = False
         self.html = self._build_html()
+        from Widgets.globalVars import m as m
+        if m: m.fui_widgets[self.id] = self
 
     def add(self, widg, index=None):
         if index is not None:
@@ -35,14 +35,36 @@ class FWidget:
     def toHtml(self):
         return self._build_html()
 
-    def reload(self) -> None:
+    def reload(self):
         """Mark this widget to be reloaded on the client.
-
-        When the server subsequently returns HTML that includes this widget
-        (for example as the response to an event), the widget's HTML will
-        include a short script that calls `window.fuiReloadWidget(id)`.
+        
+        When in an application context, makes an HTTP call to reload the widget.
+        Otherwise, just rebuilds the HTML.
         """
-        self._emit_reload_script = True
+        self._build_html()
+        from Widgets.globalVars import tc
+        if not tc:
+            print("No tc")
+            return
+        try:
+            print("reloading..." + self.id)
+            response = tc.post(
+                '/_fui_widget_reload',
+                json={'id': self.id},
+                headers={'Content-Type': 'application/json'}
+            )
+            if response.status_code == 204:
+                return self
+            if response.status_code != 200:
+                raise FUIError(
+                    f"Widget reload failed with status {response.status_code}",
+                    response.get_data(as_text=True)
+                )
+            self.html = response.get_data(as_text=True)
+            print("reloaded - " + self.id)
+        except Exception as e:
+            raise FUIError("Failed to reload widget", str(e))
+        return self
 
     def _validate_content(self, content=None):
         content = content or self.content
@@ -68,9 +90,6 @@ class FWidget:
         html = f'<{self.tag} id="{self.id}" {attr_str}>'
         for w in self.content: html += w.toHtml() if isinstance(w, FWidget) else str(w)
         html += f'</{self.tag}>'
-        if self._emit_reload_script:
-            html += f'<script class="reload-{self.id}">window.fuiReloadWidget && window.fuiReloadWidget("{self.id}");</script>'
-            self._emit_reload_script = False
         self.html = html
         return html
     
@@ -86,7 +105,7 @@ class FWidget:
         return self.add(other)
 
     def __rshift__(self, other):
-        return self.add(other)
+        return other.add(self)
 
     def __repr__(self):
         return self.toHtml()
@@ -105,8 +124,8 @@ class FPage(FWidget):
         self.styles = styles or []
         self.content = self.body
         self.html = ''
-        self._build_html()
         super().__init__(tag='html', content=body)
+        self._build_html()
     
     def addScript(self, script: str|FWidget):
         self.scripts.append(script)
@@ -117,7 +136,6 @@ class FPage(FWidget):
     def addStyle(self, style: str|FWidget):
         self.styles.append(style)
         self._build_html()
-        self.reload()
         return self
 
     def _build_html(self):
@@ -137,11 +155,11 @@ class FPage(FWidget):
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
         <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
         <script src="https://cdn.tailwindcss.com"></script>
-        {script_html}
         <!-- FUI reload helper: call `fuiReloadWidget(id)` to fetch updated HTML and replace the element -->
         <script>
         window.fuiReloadWidget = async function(id) {{
             try {{
+                console.log('Reloading: ${{id}}')
                 const res = await fetch('/_fui_widget_reload', {{
                     method: 'POST',
                     headers: {{ 'Content-Type': 'application/json' }},
@@ -160,19 +178,22 @@ class FPage(FWidget):
                 // Process the new element with htmx to ensure htmx attributes work
                 htmx.process(document.getElementById(id));
                 // Remove any reload-script tags emitted for this id
-                try {{
-                    const scripts = document.querySelectorAll('script.reload-' + id);
-                    scripts.forEach(s => s.remove());
-                }} catch (e) {{ /* ignore DOM removal errors */ }}
+                // try {{
+                //     const scripts = document.querySelectorAll('script.reload-' + id);
+                //     scripts.forEach(s => s.remove());
+                // }} catch (e) {{ /* ignore DOM removal errors */ }}
             }} catch (err) {{
                 console.error('FUI reload error', err);
             }}
         }};
         </script>
-        {style_html}
         </head>
         <body>
+        <page id="{self.id}">
+        {style_html}
+        {script_html}
         {body_html}
+        </page>
         </body>
         </html>"""
         self.html = raw
@@ -197,17 +218,21 @@ class FValueWidget(FWidget):
         super().__init__(id_=id_, clas=clas, prop=prop, style=style, tag=tag, content=content)
         self.value = value or ''
         self.onchange = onchange
-        # common htmx attributes; specific trigger (input/change) is set by
-        # the concrete widget classes to avoid duplicate/conflicting triggers
+        # common htmx attributes
         self.prop.append('hx-post="/_fui_event"')
         self.prop.append(f'hx-vals="js:{{ id: \'{self.id}\', value: this.value }}"')
         self.prop.append('hx-target="this"')
         self.prop.append('hx-swap="outerHTML"')
-        # Add this to ensure htmx processes the element after swap
         self.prop.append('hx-swap-oob="true"')
-        self.setValue(self.value)
+        # Set initial value without reloading
+        self._setValue(self.value)
     
     def setValue(self, value):
+        self._setValue(value)
+        self.reload()
+        return self
+
+    def _setValue(self, value):
         self.value = value
         for i, p in enumerate(self.prop):
             if p.strip().startswith('value='):
@@ -215,4 +240,3 @@ class FValueWidget(FWidget):
                 break
         self.prop.append(f'value="{self.value}"')
         self._build_html()
-        self.reload()
